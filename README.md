@@ -32,7 +32,11 @@ openai:
 
 ## Usage
 
-1. Prepare a zip file containing images you'd like to analyze (e.g., `images.zip`).
+1. Prepare a folder containing images you'd like to analyze (e.g., `images`).
+
+```bash
+python prepare_images.py
+```
 
 2. Run `memory.py` to process the images and create a memory dataset:
 
