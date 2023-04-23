@@ -1,4 +1,4 @@
-# Gemini
+# Gemini 🤖
 
 Gemini is a Python project that processes and analyzes image information to create a memory dataset, which can then be used to answer user questions based on these memories. The project uses OpenAI's GPT-3.5-turbo model and various other libraries to perform tasks such as extracting image metadata, generating captions, and creating embeddings.
 
