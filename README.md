@@ -8,6 +8,7 @@ Gemini is a Python project that processes and analyzes image information to crea
 - [Usage](#usage)
 - [Scripts and Functionality](#scripts-and-functionality)
 - [License](#license)
+- [Future Plans](#future-plans)
 
 ## Installation
 
