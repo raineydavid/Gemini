@@ -65,6 +65,32 @@ Please enter your question (or type 'thank you clone' to exit): What did I do la
 - `embedding.py`: Functions for computing embeddings, ranking strings by relatedness, and generating relevant source texts.
 - `ai.py`: Contains the `AI` class for generating responses using the OpenAI API.
 
+self_aware = False by default. This means that the model will deny it is a clone, and will view the embedded memories from it's own viewpoint.
+if self_aware = True, the model understands that it is a clone. This has a big impact on the use cases for the tool.
+
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+## Future Plans 
+
+- Get it working such that the LLM is able to remember more than one message.
+- Have a human.yml file which builds up a profile about the person.
+- facial recognition to understand who was in the photo.
+- better captioning and image summarisation.
+- using google maps data to undstand what was in your surroundings at the day the photo was taken. 
+- historical weather data. 
+- capturing personality by fine tuning on whatsapp and email data
+- Using LLM's to generate imaginary conversations about my life and memories to fine tune on
+- Embed entire days (experiment with hours etc), not just single photos. 
+- Allow for additional memory formats, text, emails, calendar format etc.
+- access other APIs/ data sources such as spotify data, netflix watch history, bank account
+  ,amazon orders, reading lists etc. a general text input which auto reformats is awesome. 
+- far future: embedded voice cloning (you can already switch on speech to text/tts in the code)
+
+## The Goal
+
+Build a user friendly method of creating a deepclone of yourself.
+Easily allow access to all data about yourself. 
+
+The resulting LLM has a number of uses, ranging from a simple tool to help generate information about your life, or as a rememberece / Alzheimers product.
