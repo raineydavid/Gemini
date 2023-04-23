@@ -15,7 +15,7 @@ Gemini is a Python project that processes and analyzes image information to crea
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/yourusername/gemini.git
+git clone https://github.com/samshapley/gemini.git
 ```
 
 2. Install the required dependencies:
