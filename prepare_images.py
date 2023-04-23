@@ -10,11 +10,10 @@ from geopy.exc import GeocoderTimedOut
 
 
 class ImageInfoExtractor:
-    def __init__(self, zip_path):
-        self.zip_path = zip_path
+    def __init__(self, image_dir):
+        self.image_dir = image_dir
         self.image_to_text = pipeline("image-to-text", model="nlpconnect/vit-gpt2-image-captioning")
-        self.base_image_dir = 'images'
-        self.image_dir = None  # This will be set in extract_images method
+
 
     def extract_images(self):
         with zipfile.ZipFile(self.zip_path, 'r') as zip_ref:
@@ -65,7 +64,6 @@ class ImageInfoExtractor:
         return location, datetime_taken
 
     def extract_image_info(self):
-        self.extract_images()
         image_info = {}
         for file_name in tqdm(os.listdir(self.image_dir)):
             file_extension = os.path.splitext(file_name)[1].lower()
@@ -89,12 +87,11 @@ class ImageInfoExtractor:
         
         return image_info
 
-
 import utils as u
 import json
 
-zip_path = 'images.zip'
-extractor = ImageInfoExtractor(zip_path)
+image_dir = 'images'  # The directory containing the image files
+extractor = ImageInfoExtractor(image_dir)
 image_info = extractor.extract_image_info()
 
 # Convert the image_info to a serializable format
@@ -106,5 +103,3 @@ json_data = json.dumps(serializable_image_info)
 # Write the JSON data to a file
 with open('image_info.json', 'w') as outfile:
     outfile.write(json_data)
-
-## goal, embed an entire date essentially into a single "memory"

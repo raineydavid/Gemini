@@ -1,5 +1,4 @@
-# Gemini 🤖
-Your digital clone. 
+# Gemini
 
 Gemini is a Python project that processes and analyzes image information to create a memory dataset, which can then be used to answer user questions based on these memories. The project uses OpenAI's GPT-3.5-turbo model and various other libraries to perform tasks such as extracting image metadata, generating captions, and creating embeddings.
 
@@ -14,22 +13,22 @@ Gemini is a Python project that processes and analyzes image information to crea
 
 1. Clone the repository:
 
-\```bash
+```bash
 git clone https://github.com/yourusername/gemini.git
-\```
+```
 
 2. Install the required dependencies:
 
-\```bash
+```bash
 pip install -r requirements.txt
-\```
+```
 
 3. Add your OpenAI API key to `config.yml`:
 
-\```yaml
+```yaml
 openai:
   api_key: "your_openai_api_key"
-\```
+```
 
 ## Usage
 
@@ -37,21 +36,21 @@ openai:
 
 2. Run `memory.py` to process the images and create a memory dataset:
 
-\```bash
+```bash
 python memory.py
-\```
+```
 
 3. Run `main.py` to start the interactive prompt for asking questions based on the generated memories:
 
-\```bash
+```bash
 python main.py
-\```
+```
 
 4. Enter your questions or type 'thank you clone' to exit:
 
-\```
+```
 Please enter your question (or type 'thank you clone' to exit): What did I do last summer?
-\```
+```
 
 ## Scripts and Functionality
 

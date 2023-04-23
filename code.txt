@@ -1,0 +1,413 @@
+-------------------------------------------------------------------------------- prepare_images.py --------------------------------------------------------------------------------  import zipfile
+from transformers import pipeline
+import os
+from PIL import Image
+from PIL.ExifTags import TAGS, GPSTAGS
+from tqdm import tqdm
+import exifread
+from geopy.geocoders import Nominatim
+from geopy.exc import GeocoderTimedOut
+
+
+class ImageInfoExtractor:
+    def __init__(self, image_dir):
+        self.image_dir = image_dir
+        self.image_to_text = pipeline("image-to-text", model="nlpconnect/vit-gpt2-image-captioning")
+
+
+    def extract_images(self):
+        with zipfile.ZipFile(self.zip_path, 'r') as zip_ref:
+            # Extract the images into a subdirectory with the same name as the ZIP file (without the .zip extension)
+            extract_dir = os.path.splitext(os.path.basename(self.zip_path))[0]
+            zip_ref.extractall(os.path.join(self.base_image_dir, extract_dir))
+            self.image_dir = os.path.join(self.base_image_dir, extract_dir)
+
+    def get_exif_data(self, image_path):
+        image = Image.open(image_path)
+        exif_data = image._getexif()
+        return {TAGS[k]: v for k, v in exif_data.items() if k in TAGS}
+
+    def decimal_degrees(self, deg, min, sec):
+        return deg + min / 60 + sec / 3600
+
+    def get_location_description(self, latitude, longitude):
+        geolocator = Nominatim(user_agent="geoapiExercises")
+        try:
+            location = geolocator.reverse(f"{latitude}, {longitude}")
+            return location.address
+        except GeocoderTimedOut:
+            return "Geocoder timed out. Please try again."
+
+    def get_location_and_datetime(self, exif_data):
+        def dms_to_dd(d, m, s):
+            return d + m / 60.0 + s / 3600.0
+
+        location = None
+        datetime_taken = None
+
+        if 'GPSInfo' in exif_data:
+            gps_info = exif_data['GPSInfo']
+            if 1 in gps_info and 2 in gps_info and 3 in gps_info and 4 in gps_info:
+                lat_dms = gps_info[2]
+                lon_dms = gps_info[4]
+                lat_ref = gps_info[1]
+                lon_ref = gps_info[3]
+                latitude = dms_to_dd(lat_dms[0], lat_dms[1], lat_dms[2])
+                longitude = dms_to_dd(lon_dms[0], lon_dms[1], lon_dms[2])
+                if lat_ref == 'S':
+                    latitude = -latitude
+                if lon_ref == 'W':
+                    longitude = -longitude
+                location = self.get_location_description(latitude, longitude)
+        if 'DateTime' in exif_data:
+            datetime_taken = exif_data['DateTime']
+        return location, datetime_taken
+
+    def extract_image_info(self):
+        image_info = {}
+        for file_name in tqdm(os.listdir(self.image_dir)):
+            file_extension = os.path.splitext(file_name)[1].lower()
+            if file_extension in ['.png', '.jpg', '.jpeg']:
+                image_path = os.path.join(self.image_dir, file_name)
+                image = Image.open(image_path)
+                    
+                # Get the EXIF data for the image
+                exif_data = self.get_exif_data(image_path)
+                
+                # Use the EXIF data to extract location and datetime information
+                location, datetime_taken = self.get_location_and_datetime(exif_data)
+                
+                caption = self.image_to_text(image)[0]["generated_text"]
+                image_data = {
+                    "caption": caption,
+                    "date_taken": datetime_taken,
+                    "location": location
+                }
+                image_info[file_name] = image_data
+        
+        return image_info
+
+import utils as u
+import json
+
+image_dir = 'images'  # The directory containing the image files
+extractor = ImageInfoExtractor(image_dir)
+image_info = extractor.extract_image_info()
+
+# Convert the image_info to a serializable format
+serializable_image_info = u.convert_to_serializable(image_info)
+
+# Serialize the data to JSON
+json_data = json.dumps(serializable_image_info)
+
+# Write the JSON data to a file
+with open('image_info.json', 'w') as outfile:
+    outfile.write(json_data)  -------------------------------------------------------------------------------- memory.py --------------------------------------------------------------------------------  # open image_info.json and loop through the keys 
+import openai
+from ai import AI
+from embedding import ask, compute_embeddings
+import numpy as np
+import pandas as pd
+import json
+from tqdm import tqdm
+import yaml
+
+# Load the configuration from the YAML file
+with open('config.yml', 'r') as config_file:
+    config = yaml.safe_load(config_file)
+
+# Set the API key from the configuration
+openai.api_key = config['openai']['api_key']
+
+ai = AI(system=
+"""You form memories given information about images. 
+A memory is a 2 sentence summary of the image. Each memory starts with a date and location if present.
+All your memories are in the first person, i.e I went to the beach.
+You can add additional information to your memories if you want, but you should always be specific about the date and time, if you don't know it, just describe the memory as normal.
+"""
+,openai_module=openai)
+
+
+# open image_knowledge.json and form a list of strings from each key
+texts = []
+with open('image_info.json') as f:
+    data = json.load(f)
+    for key in tqdm(data, desc="Generating memories"):
+        image_info = data[key]
+        response, messages = ai.generate_response(f'{image_info}', voice=False, clear_messages=True)
+        texts.append(response)
+
+df = compute_embeddings(texts)
+
+# Save the DataFrame as a CSV
+df.to_csv('memories.csv', index=False)
+
+
+
+  -------------------------------------------------------------------------------- embedding.py --------------------------------------------------------------------------------  # search function
+from ai import AI
+import pandas as pd
+from scipy import spatial
+import tiktoken
+import ast
+import openai
+
+def compute_embeddings(texts: list[str]) -> pd.DataFrame:
+    data = {
+        'text': [],
+        'embedding': []
+    }
+
+    for text in texts:
+        embedding_response = openai.Embedding.create(
+            model='text-embedding-ada-002',
+            input=text,
+        )
+        embedding = embedding_response["data"][0]["embedding"]
+        data['text'].append(text)
+        data['embedding'].append(embedding)
+
+    df = pd.DataFrame(data)
+    return df
+
+
+def strings_ranked_by_relatedness(
+    query: str,
+    df: pd.DataFrame,
+    relatedness_fn=lambda x, y: 1 - spatial.distance.cosine(x, y),
+    top_n: int = 100
+) -> tuple[list[str], list[float]]:
+    """Returns a list of strings and relatednesses, sorted from most related to least."""
+    query_embedding_response = openai.Embedding.create(
+        model='text-embedding-ada-002',
+        input=query,
+    )
+    query_embedding = query_embedding_response["data"][0]["embedding"]
+    strings_and_relatednesses = [
+        (row["text"], relatedness_fn(query_embedding, ast.literal_eval(row["embedding"])))
+        for i, row in df.iterrows()
+    ]
+    strings_and_relatednesses.sort(key=lambda x: x[1], reverse=True)
+    strings, relatednesses = zip(*strings_and_relatednesses)
+    return strings[:top_n], relatednesses[:top_n]
+
+def num_tokens(text: str, model: str = 'gpt-3.5-turbo') -> int:
+    """Return the number of tokens in a string."""
+    encoding = tiktoken.encoding_for_model(model)
+    return len(encoding.encode(text))
+
+
+def query_message(
+    query: str,
+    df: pd.DataFrame,
+    model: str,
+    token_budget: int
+) -> str:
+    """Return relevant source texts for a given query."""
+    strings, relatednesses = strings_ranked_by_relatedness(query, df)
+    message = ""
+    for string in strings:
+        next_article = f'\n\nMemory:\n"""\n{string}\n"""'
+        if (
+            num_tokens(message + next_article, model=model)
+            > token_budget
+        ):
+            break
+        else:
+            message += next_article
+    return message
+
+
+def ask(
+    query: str,
+    df: pd.DataFrame,
+    model: str = 'gpt-3.5-turbo',
+    token_budget: int = 4096 - 500,
+    system: str = 'You are Samuel Shapley. You have his memories and engage in natural human dialogue. You dont always need to go deep into memories.',
+    self_aware: bool = False,
+    print_message: bool = False,
+    clear_messages: bool = False,
+) -> str:
+    """Answers a query using GPT and a dataframe of relevant texts and embeddings."""
+    message = query_message(query, df, model=model, token_budget=token_budget)
+    if print_message:
+        print(message)
+
+    clone_message = "You are aware that you are a clone." if self_aware else "You are not aware that you are a clone."
+    system_message = f"{system} {clone_message}"
+
+    ai = AI(system=system_message, openai_module=openai)
+
+    response, messages = ai.generate_response(f'{message}+\n{query}', voice=False, clear_messages=clear_messages)
+
+
+    if clear_messages:
+        messages.clear()
+
+    return response
+
+
+
+  -------------------------------------------------------------------------------- ai.py --------------------------------------------------------------------------------  import openai
+import pyttsx3
+
+class AI:
+    def __init__(self, openai_module, system="", rate=150):
+        self.system = system
+        self.openai = openai_module
+        self.rate = rate
+        self.messages = [{"role": "system", "content": system}]
+
+    def generate_response(self, prompt, voice=False, clear_messages=False):
+        if clear_messages:
+            self.messages = [{"role": "system", "content": self.system}]
+
+        self.messages.append({"role": "user", "content": prompt})
+
+        response_json = self.openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=self.messages,
+        )
+
+        response_text = response_json["choices"][0]["message"]["content"]
+
+        if voice:
+            engine = pyttsx3.init()
+            engine.setProperty('rate', self.rate)
+
+            engine.say(response_text)
+            engine.runAndWait()
+
+        self.messages.append({"role": "assistant", "content": response_text})
+
+        return response_text, self.messages
+  -------------------------------------------------------------------------------- utils.py --------------------------------------------------------------------------------  from PIL.TiffImagePlugin import IFDRational
+from fractions import Fraction
+import base64
+
+def convert_to_serializable(data):
+    if isinstance(data, IFDRational):
+        # Convert IFDRational to a tuple (numerator, denominator)
+        return (data.numerator, data.denominator)
+    elif isinstance(data, bytes):
+        # Convert binary data to a base64-encoded string
+        return base64.b64encode(data).decode('utf-8')
+    elif isinstance(data, dict):
+        # Recursively process dictionary values
+        return {k: convert_to_serializable(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        # Recursively process list elements
+        return [convert_to_serializable(v) for v in data]
+    else:
+        # Return other data types as-is
+        return data  -------------------------------------------------------------------------------- app.py --------------------------------------------------------------------------------  from flask import Flask, render_template, request, jsonify
+import webview
+from threading import Thread
+import pandas as pd
+import embedding  # Import the embedding module
+
+app = Flask(__name__)
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/ask', methods=['POST'])
+def ask_question():
+    # Check if 'query' parameter is present in the request form
+    if 'query' not in request.form:
+        return jsonify({'error': 'Missing query parameter'}), 400
+
+    query = request.form['query']
+    
+    # Load the DataFrame from a CSV
+    df = pd.read_csv('memories.csv')
+    
+    # Get the response from the model
+    response = embedding.ask(query, df, clear_messages=False, self_aware=False)
+    
+    # Check if response is valid
+    if not response:
+        return jsonify({'error': 'Failed to generate response'}), 400
+
+    return jsonify({'response': response})
+
+
+def run_flask_app():
+    app.run(debug=False, threaded=True)  # Set debug=False and threaded=True
+
+if __name__ == '__main__':
+    print('Starting Flask app...')
+    t = Thread(target=run_flask_app)
+    t.start()
+
+    # Open the webview window
+    webview.create_window('Ask Gemini', 'http://127.0.0.1:5000/')
+    webview.start()
+  -------------------------------------------------------------------------------- prompt.py --------------------------------------------------------------------------------  ## A prompt.py file is a file creates a prompt for ChatGPT of the codebase to make it easy.
+
+import os
+
+def get_code_from_file(file_path):
+    with open(file_path, 'r') as f:
+        return f.read()
+
+# Get the current directory
+current_dir = os.getcwd()
+
+# Get the list of files in the current directory
+files = os.listdir(current_dir)
+
+# Loop through the files and save the code to a text file, separated by dashes, and the file name
+with open('code.txt', 'w') as f:
+    for file in files:
+        if file.endswith('.py'):
+            code = get_code_from_file(file)
+            f.write('-' * 80 + ' ' + file + ' ' + '-' * 80 + ' ' + ' ' + code + ' ' + ' ') #add a space at the end to make sure the next file starts on a new line
+  -------------------------------------------------------------------------------- main.py --------------------------------------------------------------------------------  from embedding import ask, compute_embeddings
+import pandas as pd
+import openai
+import yaml
+from datetime import datetime
+
+# Load the configuration from the YAML file
+with open('config.yml', 'r') as config_file:
+    config = yaml.safe_load(config_file)
+
+# Set the API key from the configuration
+openai.api_key = config['openai']['api_key']
+
+# Load the DataFrame from a CSV
+df = pd.read_csv('memories.csv')
+
+# Loop to continuously ask for user input
+while True:
+    # Prompt the user for a question
+    query = input("Please enter your question (or type 'thank you clone' to exit): ")
+
+    # Check if the user wants to exit
+    if query.lower() == 'thank you clone':
+        print("You're welcome! Goodbye!")
+        print("*SHUTTING DOWN*")
+        break
+
+    # Get the current timestamp
+    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+    # Get the response from the model
+    response = ask(query, df, clear_messages=False, self_aware=False)
+
+    # Print the response
+    print(response)
+
+    # Create an embedding for the most recent text conversation pair
+    conversation_pair = f"User: {query}\nAI: {response}"
+    conversation_df = compute_embeddings([conversation_pair])
+
+    # Add the timestamp to the DataFrame
+    conversation_df['timestamp'] = timestamp
+
+    # Append the information to the 'memories.csv' file
+    print("Rembering")
+    conversation_df.to_csv('memories.csv', mode='a', header=False, index=False)
+  

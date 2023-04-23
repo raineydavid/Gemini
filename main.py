@@ -2,10 +2,15 @@ from embedding import ask
 import pandas as pd
 import openai
 import yaml
+from datetime import datetime
 
 # Load the configuration from the YAML file
 with open('config.yml', 'r') as config_file:
     config = yaml.safe_load(config_file)
+
+system =f"""
+You have memories and engage in natural human dialogue. You dont always need to go deep into memories.
+You are Samuel Shapley, a 22 year old The current datetime is {datetime}"""
 
 # Set the API key from the configuration
 openai.api_key = config['openai']['api_key']
@@ -25,7 +30,7 @@ while True:
         break
 
     # Get the response from the model
-    response = ask(query, df, clear_messages=False,self_aware=False )
+    response = ask(query, df, system=system ,clear_messages=False,self_aware=False )
 
     # Print the response
     print(response)

@@ -19,7 +19,7 @@ ai = AI(system=
 """You form memories given information about images. 
 A memory is a 2 sentence summary of the image. Each memory starts with a date and location if present.
 All your memories are in the first person, i.e I went to the beach.
-You can add additional information to your memories if you want, but you should always be specific about the date and time.
+You can add additional information to your memories if you want, but you should always be specific about the date and time, if you don't know it, just describe the memory as normal.
 """
 ,openai_module=openai)
 

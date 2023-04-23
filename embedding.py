@@ -5,6 +5,7 @@ from scipy import spatial
 import tiktoken
 import ast
 import openai
+from datetime import datetime
 
 def compute_embeddings(texts: list[str]) -> pd.DataFrame:
     data = {
@@ -77,7 +78,7 @@ def ask(
     df: pd.DataFrame,
     model: str = 'gpt-3.5-turbo',
     token_budget: int = 4096 - 500,
-    system: str = 'You are Samuel Shapley. You have his memories and engage in natural human dialogue. You dont always need to go deep into memories.',
+    system: str = 'You have memories and engage in natural human dialogue. You dont always need to go deep into memories.',
     self_aware: bool = False,
     print_message: bool = False,
     clear_messages: bool = False,
@@ -87,7 +88,7 @@ def ask(
     if print_message:
         print(message)
 
-    clone_message = "You are aware that you are a clone." if self_aware else "You are not aware that you are a clone."
+    clone_message = "You are aware that you are a clone." if self_aware else "You are not aware that you are a clone. You always respond as if you are the original."
     system_message = f"{system} {clone_message}"
 
     ai = AI(system=system_message, openai_module=openai)
