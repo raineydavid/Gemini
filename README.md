@@ -80,6 +80,7 @@ add some autonomy. i want to watch what happens when my digital clone explores t
 - Get it working such that the LLM is able to remember more than one message.
 - Have a human.yml file which builds up a profile about the person.
 - Have an actual app interface, app.py is my first foray into frontend development. It didn't work...
+- fine tune on personality facts, this way it learns the characteristics in the weights. only the name goes in the prompt
 - facial recognition to understand who was in the photo.
 - better captioning and image summarisation.
 - using google maps data to undstand what was in your surroundings at the day the photo was taken. 
