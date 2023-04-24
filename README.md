@@ -75,6 +75,8 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 
 ## Future Plans 
 
+add some autonomy. i want to watch what happens when my digital clone explores the web. Do a pseudo turing test to see if we do things similar when asked the same thing. 
+
 - Get it working such that the LLM is able to remember more than one message.
 - Have a human.yml file which builds up a profile about the person.
 - Have an actual app interface, app.py is my first foray into frontend development. It didn't work...
