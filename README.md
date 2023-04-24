@@ -77,6 +77,7 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 
 - Get it working such that the LLM is able to remember more than one message.
 - Have a human.yml file which builds up a profile about the person.
+- Have an actual app interface, app.py is my first foray into frontend development. It didn't work...
 - facial recognition to understand who was in the photo.
 - better captioning and image summarisation.
 - using google maps data to undstand what was in your surroundings at the day the photo was taken. 
